@@ -18,7 +18,7 @@ import {
   DashboardOutlined,
 } from "@ant-design/icons";
 
-const { Header, Sider, Content } = Layout;
+const { Header, Sider, Content, Footer } = Layout;
 
 type MenuItem = Required<MenuProps>["items"][number];
 
@@ -149,7 +149,7 @@ export default function MainLayout() {
         </Header>
         <Content
           style={{
-            margin: 24,
+            margin: "24px 24px 0",
             padding: 24,
             minHeight: 280,
             background: token.colorBgContainer,
@@ -158,6 +158,9 @@ export default function MainLayout() {
         >
           <Outlet />
         </Content>
+        <Footer style={{ textAlign: "center" }}>
+          Ant Design ©{new Date().getFullYear()} Created by Ant UED
+        </Footer>
       </Layout>
     </Layout>
   );
