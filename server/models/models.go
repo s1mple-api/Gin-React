@@ -59,3 +59,21 @@ type Menu struct {
 func (Menu) TableName() string {
 	return "menus"
 }
+
+type Log struct {
+	ID        uint           `gorm:"primarykey" json:"id"`
+	CreatedAt time.Time      `json:"created_at"`
+	UserID    uint           `json:"user_id"`
+	Username  string         `gorm:"size:50;not null" json:"username"`
+	Action    string         `gorm:"size:50;not null" json:"action"`
+	Method    string         `gorm:"size:10;not null" json:"method"`
+	Path      string         `gorm:"size:255" json:"path"`
+	IP        string         `gorm:"size:50" json:"ip"`
+	Status    int           `gorm:"default:200" json:"status"`
+	Message   string         `gorm:"size:500" json:"message"`
+	User      *User          `gorm:"foreignKey:UserID" json:"user,omitempty"`
+}
+
+func (Log) TableName() string {
+	return "logs"
+}

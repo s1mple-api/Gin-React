@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 
 	"server/config"
+	"server/middleware"
 	"server/models"
 	"server/utils"
 
@@ -35,6 +36,7 @@ func Login(c *gin.Context) {
 	var user models.User
 	if err := config.DB.Where("username = ?", req.Username).First(&user).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
+			LogLogin(0, req.Username, middleware.GetClientIP(c), false)
 			c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "用户名或密码错误"})
 			return
 		}
@@ -43,11 +45,13 @@ func Login(c *gin.Context) {
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+		LogLogin(user.ID, user.Username, middleware.GetClientIP(c), false)
 		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "用户名或密码错误"})
 		return
 	}
 
 	if !user.Status {
+		LogLogin(user.ID, user.Username, middleware.GetClientIP(c), false)
 		c.JSON(http.StatusUnauthorized, gin.H{"code": 401, "message": "账号已被禁用"})
 		return
 	}
@@ -60,9 +64,13 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	middleware.StoreToken(user.ID, token)
+
 	var menus []models.Menu
 	config.DB.Where("status = ?", true).Order("sort ASC").Find(&menus)
 	menuTree := BuildMenuTree(menus)
+
+	LogLogin(user.ID, user.Username, middleware.GetClientIP(c), true)
 
 	c.JSON(http.StatusOK, gin.H{
 		"code":    200,
@@ -73,4 +81,15 @@ func Login(c *gin.Context) {
 			MenuTree: menuTree,
 		},
 	})
+}
+
+func Logout(c *gin.Context) {
+	userID := c.GetUint("user_id")
+	username := c.GetString("username")
+	token := c.GetString("token")
+
+	middleware.RemoveToken(token)
+	LogLogout(userID, username, middleware.GetClientIP(c))
+
+	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "退出登录成功"})
 }

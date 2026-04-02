@@ -17,6 +17,7 @@ import {
   SettingOutlined,
   LogoutOutlined,
   DashboardOutlined,
+  FileTextOutlined,
 } from "@ant-design/icons";
 import { getUserInfo, logout, type UserInfo, AxiosError } from "../api";
 
@@ -39,6 +40,11 @@ const menuItems: MenuItem[] = [
     key: "/user-management",
     icon: <UserOutlined />,
     label: "用户管理",
+  },
+  {
+    key: "/log-management",
+    icon: <FileTextOutlined />,
+    label: "日志管理",
   },
 ];
 
@@ -191,7 +197,7 @@ export default function MainLayout() {
             >
               <Avatar
                 icon={<UserOutlined />}
-                src={userInfo?.avatar}
+                src={userInfo?.avatar || null}
                 style={{ backgroundColor: token.colorPrimary }}
               />
               <span>{userInfo?.name || userInfo?.username || "用户"}</span>

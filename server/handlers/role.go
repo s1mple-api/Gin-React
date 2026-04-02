@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"server/config"
+	"server/middleware"
 	"server/models"
 
 	"github.com/gin-gonic/gin"
@@ -42,6 +43,9 @@ func CreateRole(c *gin.Context) {
 		return
 	}
 
+	userID := c.GetUint("user_id")
+	username := c.GetString("username")
+
 	var existRole models.Role
 	if err := config.DB.Where("code = ?", req.Code).First(&existRole).Error; err == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "角色编码已存在"})
@@ -56,6 +60,7 @@ func CreateRole(c *gin.Context) {
 	}
 
 	if err := config.DB.Create(&role).Error; err != nil {
+		LogOperation(userID, username, "创建角色", "POST", "/api/role", middleware.GetClientIP(c), false)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建角色失败"})
 		return
 	}
@@ -66,6 +71,7 @@ func CreateRole(c *gin.Context) {
 		config.DB.Model(&role).Association("Menus").Append(&menus)
 	}
 
+	LogOperation(userID, username, "创建角色", "POST", "/api/role", middleware.GetClientIP(c), true)
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "创建成功", "data": role})
 }
 
@@ -83,6 +89,9 @@ func UpdateRole(c *gin.Context) {
 		return
 	}
 
+	userID := c.GetUint("user_id")
+	username := c.GetString("username")
+
 	var existRole models.Role
 	if err := config.DB.Where("code = ? AND id != ?", req.Code, id).First(&existRole).Error; err == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "角色编码已存在"})
@@ -97,6 +106,7 @@ func UpdateRole(c *gin.Context) {
 	}
 
 	if err := config.DB.Model(&role).Updates(updates).Error; err != nil {
+		LogOperation(userID, username, "更新角色", "PUT", "/api/role/"+id, middleware.GetClientIP(c), false)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新角色失败"})
 		return
 	}
@@ -109,6 +119,7 @@ func UpdateRole(c *gin.Context) {
 	}
 
 	config.DB.Preload("Menus").First(&role, id)
+	LogOperation(userID, username, "更新角色", "PUT", "/api/role/"+id, middleware.GetClientIP(c), true)
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "更新成功", "data": role})
 }
 
@@ -121,6 +132,9 @@ func DeleteRole(c *gin.Context) {
 		return
 	}
 
+	userID := c.GetUint("user_id")
+	username := c.GetString("username")
+
 	var userCount int64
 	config.DB.Model(&models.User{}).Where("role_id = ?", id).Count(&userCount)
 	if userCount > 0 {
@@ -129,9 +143,11 @@ func DeleteRole(c *gin.Context) {
 	}
 
 	if err := config.DB.Delete(&role).Error; err != nil {
+		LogOperation(userID, username, "删除角色", "DELETE", "/api/role/"+id, middleware.GetClientIP(c), false)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "删除角色失败"})
 		return
 	}
 
+	LogOperation(userID, username, "删除角色", "DELETE", "/api/role/"+id, middleware.GetClientIP(c), true)
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "删除成功"})
 }

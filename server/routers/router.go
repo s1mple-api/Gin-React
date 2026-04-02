@@ -12,12 +12,15 @@ func SetupRouter() *gin.Engine {
 	r := gin.Default()
 
 	r.Use(corsMiddleware())
+	r.Use(middleware.ResponseInterceptor())
 
 	r.POST("/api/login", handlers.Login)
 
 	api := r.Group("/api")
 	api.Use(middleware.JWTAuth(config.AppConfig.JWTSecret))
 	{
+		api.POST("/logout", handlers.Logout)
+
 		api.GET("/menu/list", handlers.GetMenus)
 		api.GET("/menu/all", handlers.GetAllMenus)
 		api.POST("/menu", handlers.CreateMenu)
@@ -35,6 +38,9 @@ func SetupRouter() *gin.Engine {
 		api.DELETE("/user/:id", handlers.DeleteUser)
 		api.GET("/user/info", handlers.GetUserInfo)
 		api.POST("/user/password", handlers.ChangePassword)
+
+		api.GET("/log/list", handlers.GetLogs)
+		api.GET("/log/stats", handlers.GetLogStats)
 	}
 
 	return r

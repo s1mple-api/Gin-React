@@ -200,5 +200,56 @@ export const changePassword = (data: ChangePasswordData) => {
   return api.post("/user/password", data) as Promise<ApiResponse<null>>;
 };
 
+export interface Log {
+  id: number;
+  user_id: number;
+  username: string;
+  action: string;
+  method: string;
+  path: string;
+  ip: string;
+  status: number;
+  message: string;
+  created_at: string;
+  user?: {
+    id: number;
+    username: string;
+    name: string;
+  };
+}
+
+export interface LogListResponse {
+  list: Log[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface LogStats {
+  today_logins: number;
+  today_logouts: number;
+  today_operations: number;
+  total_logs: number;
+}
+
+export interface GetLogsParams {
+  action?: string;
+  username?: string;
+  start_date?: string;
+  end_date?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export const getLogs = (params?: GetLogsParams) => {
+  return api.get("/log/list", { params }) as Promise<
+    ApiResponse<LogListResponse>
+  >;
+};
+
+export const getLogStats = () => {
+  return api.get("/log/stats") as Promise<ApiResponse<LogStats>>;
+};
+
 export { AxiosError };
 export default api;

@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 
 	"server/config"
+	"server/middleware"
 	"server/models"
 
 	"github.com/gin-gonic/gin"
@@ -57,6 +58,9 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 
+	userID := c.GetUint("user_id")
+	username := c.GetString("username")
+
 	var existUser models.User
 	if err := config.DB.Where("username = ?", req.Username).First(&existUser).Error; err == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "用户名已存在"})
@@ -76,12 +80,14 @@ func CreateUser(c *gin.Context) {
 	}
 
 	if err := config.DB.Create(&user).Error; err != nil {
+		LogOperation(userID, username, "创建用户", "POST", "/api/user", middleware.GetClientIP(c), false)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建用户失败"})
 		return
 	}
 
 	user.Password = ""
 	config.DB.First(&user.Role, user.RoleID)
+	LogOperation(userID, username, "创建用户", "POST", "/api/user", middleware.GetClientIP(c), true)
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "创建成功", "data": user})
 }
 
@@ -99,6 +105,9 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
+	userID := c.GetUint("user_id")
+	username := c.GetString("username")
+
 	var existUser models.User
 	if err := config.DB.Where("username = ? AND id != ?", req.Username, id).First(&existUser).Error; err == nil {
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "用户名已存在"})
@@ -106,20 +115,22 @@ func UpdateUser(c *gin.Context) {
 	}
 
 	updates := map[string]interface{}{
-		"name":   req.Name,
-		"email":  req.Email,
-		"phone":  req.Phone,
+		"name":    req.Name,
+		"email":   req.Email,
+		"phone":   req.Phone,
 		"role_id": req.RoleID,
 		"status":  req.Status,
 	}
 
 	if err := config.DB.Model(&user).Updates(updates).Error; err != nil {
+		LogOperation(userID, username, "更新用户", "PUT", "/api/user/"+id, middleware.GetClientIP(c), false)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新用户失败"})
 		return
 	}
 
 	config.DB.Preload("Role").First(&user, id)
 	user.Password = ""
+	LogOperation(userID, username, "更新用户", "PUT", "/api/user/"+id, middleware.GetClientIP(c), true)
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "更新成功", "data": user})
 }
 
@@ -132,16 +143,22 @@ func DeleteUser(c *gin.Context) {
 		return
 	}
 
+	userID := c.GetUint("user_id")
+	username := c.GetString("username")
+
 	if err := config.DB.Delete(&user).Error; err != nil {
+		LogOperation(userID, username, "删除用户", "DELETE", "/api/user/"+id, middleware.GetClientIP(c), false)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "删除用户失败"})
 		return
 	}
 
+	LogOperation(userID, username, "删除用户", "DELETE", "/api/user/"+id, middleware.GetClientIP(c), true)
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "删除成功"})
 }
 
 func ChangePassword(c *gin.Context) {
 	userID := c.GetUint("user_id")
+	username := c.GetString("username")
 
 	var req ChangePasswordRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -156,6 +173,7 @@ func ChangePassword(c *gin.Context) {
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.OldPassword)); err != nil {
+		LogOperation(userID, username, "修改密码", "POST", "/api/user/password", middleware.GetClientIP(c), false)
 		c.JSON(http.StatusBadRequest, gin.H{"code": 400, "message": "原密码错误"})
 		return
 	}
@@ -163,10 +181,12 @@ func ChangePassword(c *gin.Context) {
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
 
 	if err := config.DB.Model(&user).Update("password", string(hashedPassword)).Error; err != nil {
+		LogOperation(userID, username, "修改密码", "POST", "/api/user/password", middleware.GetClientIP(c), false)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "修改密码失败"})
 		return
 	}
 
+	LogOperation(userID, username, "修改密码", "POST", "/api/user/password", middleware.GetClientIP(c), true)
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "修改密码成功"})
 }
 

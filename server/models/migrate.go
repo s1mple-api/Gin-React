@@ -10,6 +10,7 @@ func Migrate(db *gorm.DB) error {
 		&User{},
 		&Role{},
 		&Menu{},
+		&Log{},
 	)
 }
 
@@ -25,6 +26,7 @@ func SeedData(db *gorm.DB) error {
 		{Name: "菜单管理", Path: "/menu-management", Icon: "MenuOutlined", Sort: 1, Status: true, ParentID: nil},
 		{Name: "角色管理", Path: "/role-management", Icon: "TeamOutlined", Sort: 2, Status: true, ParentID: nil},
 		{Name: "用户管理", Path: "/user-management", Icon: "UserOutlined", Sort: 3, Status: true, ParentID: nil},
+		{Name: "日志管理", Path: "/log-management", Icon: "FileTextOutlined", Sort: 4, Status: true, ParentID: nil},
 	}
 
 	var systemMenu Menu
@@ -39,7 +41,7 @@ func SeedData(db *gorm.DB) error {
 		db.Create(&menus[i])
 	}
 
-	menus[0].Children = []*Menu{&menus[1], &menus[2], &menus[3]}
+	menus[0].Children = []*Menu{&menus[1], &menus[2], &menus[3], &menus[4]}
 	for i := range menus {
 		if menus[i].Name != "系统管理" {
 			db.Model(&menus[i]).Updates(map[string]interface{}{"parent_id": menus[0].ID})

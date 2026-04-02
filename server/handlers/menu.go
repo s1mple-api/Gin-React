@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"server/config"
+	"server/middleware"
 	"server/models"
 
 	"github.com/gin-gonic/gin"
@@ -56,6 +57,9 @@ func CreateMenu(c *gin.Context) {
 		return
 	}
 
+	userID := c.GetUint("user_id")
+	username := c.GetString("username")
+
 	menu := models.Menu{
 		Name:     req.Name,
 		Path:     req.Path,
@@ -66,10 +70,12 @@ func CreateMenu(c *gin.Context) {
 	}
 
 	if err := config.DB.Create(&menu).Error; err != nil {
+		LogOperation(userID, username, "创建菜单", "POST", "/api/menu", middleware.GetClientIP(c), false)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "创建菜单失败"})
 		return
 	}
 
+	LogOperation(userID, username, "创建菜单", "POST", "/api/menu", middleware.GetClientIP(c), true)
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "创建成功", "data": menu})
 }
 
@@ -87,6 +93,9 @@ func UpdateMenu(c *gin.Context) {
 		return
 	}
 
+	userID := c.GetUint("user_id")
+	username := c.GetString("username")
+
 	updates := map[string]interface{}{
 		"name":      req.Name,
 		"path":      req.Path,
@@ -97,10 +106,12 @@ func UpdateMenu(c *gin.Context) {
 	}
 
 	if err := config.DB.Model(&menu).Updates(updates).Error; err != nil {
+		LogOperation(userID, username, "更新菜单", "PUT", "/api/menu/"+id, middleware.GetClientIP(c), false)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "更新菜单失败"})
 		return
 	}
 
+	LogOperation(userID, username, "更新菜单", "PUT", "/api/menu/"+id, middleware.GetClientIP(c), true)
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "更新成功", "data": menu})
 }
 
@@ -113,6 +124,9 @@ func DeleteMenu(c *gin.Context) {
 		return
 	}
 
+	userID := c.GetUint("user_id")
+	username := c.GetString("username")
+
 	var childrenCount int64
 	config.DB.Model(&models.Menu{}).Where("parent_id = ?", id).Count(&childrenCount)
 	if childrenCount > 0 {
@@ -121,9 +135,11 @@ func DeleteMenu(c *gin.Context) {
 	}
 
 	if err := config.DB.Delete(&menu).Error; err != nil {
+		LogOperation(userID, username, "删除菜单", "DELETE", "/api/menu/"+id, middleware.GetClientIP(c), false)
 		c.JSON(http.StatusInternalServerError, gin.H{"code": 500, "message": "删除菜单失败"})
 		return
 	}
 
+	LogOperation(userID, username, "删除菜单", "DELETE", "/api/menu/"+id, middleware.GetClientIP(c), true)
 	c.JSON(http.StatusOK, gin.H{"code": 200, "message": "删除成功"})
 }

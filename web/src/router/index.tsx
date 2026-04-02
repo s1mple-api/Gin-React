@@ -4,6 +4,7 @@ import Login from '../pages/Login'
 import MenuManagement from '../pages/MenuManagement'
 import RoleManagement from '../pages/RoleManagement'
 import UserManagement from '../pages/UserManagement'
+import LogManagement from '../pages/LogManagement'
 
 const router = createBrowserRouter([
   {
@@ -29,6 +30,10 @@ const router = createBrowserRouter([
       {
         path: 'user-management',
         element: <UserManagement />,
+      },
+      {
+        path: 'log-management',
+        element: <LogManagement />,
       },
     ],
   },

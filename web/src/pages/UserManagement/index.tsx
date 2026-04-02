@@ -13,7 +13,13 @@ import {
   Tag,
   Avatar,
 } from "antd";
-import { PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined, UserOutlined } from "@ant-design/icons";
+import {
+  PlusOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  ReloadOutlined,
+  UserOutlined,
+} from "@ant-design/icons";
 import {
   getUsers,
   createUser,
@@ -67,7 +73,7 @@ export default function UserManagement() {
           (res.data || []).map((role: Role) => ({
             value: role.id,
             label: role.name,
-          }))
+          })),
         );
       }
     } catch (err) {
@@ -85,7 +91,7 @@ export default function UserManagement() {
     (item) =>
       item.username.includes(searchText) ||
       item.name.includes(searchText) ||
-      item.email.includes(searchText)
+      item.email.includes(searchText),
   );
 
   const handleAdd = () => {
@@ -152,7 +158,11 @@ export default function UserManagement() {
       key: "avatar",
       width: 70,
       render: (_: string | undefined, record: User) => (
-        <Avatar icon={<UserOutlined />} src={record.avatar} style={{ backgroundColor: "#1890ff" }} />
+        <Avatar
+          icon={<UserOutlined />}
+          src={record.avatar || null}
+          style={{ backgroundColor: "#1890ff" }}
+        />
       ),
     },
     {
@@ -216,7 +226,12 @@ export default function UserManagement() {
       width: 150,
       render: (_: unknown, record: User) => (
         <Space>
-          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
+          <Button
+            type="link"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => handleEdit(record)}
+          >
             编辑
           </Button>
           <Popconfirm
@@ -236,12 +251,22 @@ export default function UserManagement() {
 
   return (
     <div>
-      <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between" }}>
+      <div
+        style={{
+          marginBottom: 16,
+          display: "flex",
+          justifyContent: "space-between",
+        }}
+      >
         <div>
           <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
             新增用户
           </Button>
-          <Button icon={<ReloadOutlined />} style={{ marginLeft: 8 }} onClick={fetchUsers}>
+          <Button
+            icon={<ReloadOutlined />}
+            style={{ marginLeft: 8 }}
+            onClick={fetchUsers}
+          >
             刷新
           </Button>
         </div>
@@ -286,7 +311,11 @@ export default function UserManagement() {
               <Input.Password placeholder="请输入密码" />
             </Form.Item>
           )}
-          <Form.Item name="name" label="姓名" rules={[{ required: true, message: "请输入姓名" }]}>
+          <Form.Item
+            name="name"
+            label="姓名"
+            rules={[{ required: true, message: "请输入姓名" }]}
+          >
             <Input placeholder="请输入姓名" />
           </Form.Item>
           <Form.Item

@@ -52,7 +52,7 @@ export default function Login() {
     >
       <Card
         style={{ width: 400 }}
-        bordered={false}
+        variant="borderless"
         styles={{ body: { padding: 40 } }}
       >
         <div style={{ textAlign: "center", marginBottom: 32 }}>
@@ -71,7 +71,11 @@ export default function Login() {
             name="username"
             rules={[{ required: true, message: "请输入用户名" }]}
           >
-            <Input prefix={<UserOutlined />} placeholder="用户名: admin" />
+            <Input
+              prefix={<UserOutlined />}
+              placeholder="用户名: admin"
+              autoComplete="username"
+            />
           </Form.Item>
           <Form.Item
             name="password"
@@ -80,6 +84,7 @@ export default function Login() {
             <Input.Password
               prefix={<LockOutlined />}
               placeholder="密码: admin123"
+              autoComplete="current-password"
             />
           </Form.Item>
           <Form.Item>
