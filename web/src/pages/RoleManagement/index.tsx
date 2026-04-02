@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   Button,
@@ -12,67 +12,78 @@ import {
   Tag,
   Transfer,
 } from "antd";
+import { PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined } from "@ant-design/icons";
 import {
-  PlusOutlined,
-  EditOutlined,
-  DeleteOutlined,
-  ReloadOutlined,
-} from "@ant-design/icons";
+  getRoles,
+  createRole,
+  updateRole,
+  deleteRole,
+  getAllMenus,
+  type Role,
+  type CreateRoleData,
+  type MenuItem,
+  AxiosError,
+} from "../../api";
 
-interface Role {
-  id: number;
-  name: string;
-  code: string;
-  description: string;
-  status: boolean;
-  menus: string[];
-  createTime: string;
+interface Menu {
+  key: string;
+  title: string;
 }
 
-const initialData: Role[] = [
-  {
-    id: 1,
-    name: "超级管理员",
-    code: "super_admin",
-    description: "拥有所有权限",
-    status: true,
-    menus: ["menu_management", "role_management", "user_management"],
-    createTime: "2024-01-01 10:00:00",
-  },
-  {
-    id: 2,
-    name: "普通用户",
-    code: "user",
-    description: "普通用户权限",
-    status: true,
-    menus: ["menu_management"],
-    createTime: "2024-01-15 10:00:00",
-  },
-  {
-    id: 3,
-    name: "访客",
-    code: "guest",
-    description: "只读权限",
-    status: false,
-    menus: [],
-    createTime: "2024-02-01 10:00:00",
-  },
-];
-
-const allMenus = [
-  { key: "menu_management", title: "菜单管理" },
-  { key: "role_management", title: "角色管理" },
-  { key: "user_management", title: "用户管理" },
-  { key: "order_list", title: "订单列表" },
-  { key: "order_stats", title: "订单统计" },
-];
+interface ErrorResponse {
+  message?: string;
+}
 
 export default function RoleManagement() {
-  const [data, setData] = useState<Role[]>(initialData);
+  const [data, setData] = useState<Role[]>([]);
+  const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<Role | null>(null);
   const [form] = Form.useForm();
   const [selectedMenus, setSelectedMenus] = useState<string[]>([]);
+  const [allMenus, setAllMenus] = useState<Menu[]>([]);
+
+  const fetchRoles = async () => {
+    setLoading(true);
+    try {
+      const res = await getRoles();
+      if (res.code === 200) {
+        setData(res.data || []);
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError<ErrorResponse>;
+      message.error(axiosError.response?.data?.message || "获取角色失败");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchMenus = async () => {
+    try {
+      const res = await getAllMenus();
+      if (res.code === 200) {
+        const menuList: Menu[] = [];
+        const flattenMenus = (menus: MenuItem[]) => {
+          menus.forEach((menu) => {
+            menuList.push({ key: String(menu.id), title: menu.name });
+            if (menu.children) {
+              flattenMenus(menu.children);
+            }
+          });
+        };
+        flattenMenus(res.data || []);
+        setAllMenus(menuList);
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError<ErrorResponse>;
+      message.error(axiosError.response?.data?.message || "获取菜单失败");
+    }
+  };
+
+  useEffect(() => {
+    fetchRoles();
+    fetchMenus();
+  }, []);
 
   const handleAdd = () => {
     setEditingItem(null);
@@ -85,39 +96,55 @@ export default function RoleManagement() {
   const handleEdit = (record: Role) => {
     setEditingItem(record);
     form.setFieldsValue(record);
-    setSelectedMenus(record.menus);
+    setSelectedMenus(record.menus?.map((m) => String(m.id)) || []);
     setModalVisible(true);
   };
 
-  const handleDelete = (id: number) => {
-    setData(data.filter((item) => item.id !== id));
-    message.success("删除成功");
+  const handleDelete = async (id: number) => {
+    try {
+      const res = await deleteRole(id);
+      if (res.code === 200) {
+        message.success("删除成功");
+        fetchRoles();
+      } else {
+        message.error(res.message);
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError<ErrorResponse>;
+      message.error(axiosError.response?.data?.message || "删除失败");
+    }
   };
 
   const handleSubmit = async () => {
-    const values = await form.validateFields();
-    if (editingItem) {
-      setData(
-        data.map((item) =>
-          item.id === editingItem.id
-            ? { ...item, ...values, menus: selectedMenus }
-            : item,
-        ),
-      );
-      message.success("修改成功");
-    } else {
-      setData([
-        ...data,
-        {
-          ...values,
-          id: Date.now(),
-          menus: selectedMenus,
-          createTime: new Date().toLocaleString("zh-CN"),
-        },
-      ]);
-      message.success("添加成功");
+    try {
+      const values = await form.validateFields();
+      const submitData: CreateRoleData = {
+        ...values,
+        menu_ids: selectedMenus.map((id) => Number(id)),
+      };
+
+      if (editingItem) {
+        const res = await updateRole(editingItem.id, submitData);
+        if (res.code === 200) {
+          message.success("修改成功");
+          fetchRoles();
+        } else {
+          message.error(res.message);
+        }
+      } else {
+        const res = await createRole(submitData);
+        if (res.code === 200) {
+          message.success("添加成功");
+          fetchRoles();
+        } else {
+          message.error(res.message);
+        }
+      }
+      setModalVisible(false);
+    } catch (err) {
+      const axiosError = err as AxiosError<ErrorResponse>;
+      message.error(axiosError.response?.data?.message || "操作失败");
     }
-    setModalVisible(false);
   };
 
   const handleMenuChange = (targetKeys: React.Key[]) => {
@@ -153,8 +180,8 @@ export default function RoleManagement() {
     },
     {
       title: "创建时间",
-      dataIndex: "createTime",
-      key: "createTime",
+      dataIndex: "created_at",
+      key: "created_at",
       width: 180,
     },
     {
@@ -192,7 +219,11 @@ export default function RoleManagement() {
         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
           新增角色
         </Button>
-        <Button icon={<ReloadOutlined />} style={{ marginLeft: 8 }}>
+        <Button
+          icon={<ReloadOutlined />}
+          style={{ marginLeft: 8 }}
+          onClick={fetchRoles}
+        >
           刷新
         </Button>
       </div>
@@ -201,6 +232,7 @@ export default function RoleManagement() {
         dataSource={data}
         rowKey="id"
         pagination={{ pageSize: 10 }}
+        loading={loading}
       />
       <Modal
         title={editingItem ? "编辑角色" : "新增角色"}

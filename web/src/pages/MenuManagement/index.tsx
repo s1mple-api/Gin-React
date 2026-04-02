@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   Button,
@@ -19,78 +19,15 @@ import {
   DeleteOutlined,
   ReloadOutlined,
 } from "@ant-design/icons";
-
-interface MenuItem {
-  id: number;
-  name: string;
-  path: string;
-  icon: string;
-  parentId: number | null;
-  sort: number;
-  status: boolean;
-  children?: MenuItem[];
-}
-
-const initialData: MenuItem[] = [
-  {
-    id: 1,
-    name: "系统管理",
-    path: "/system",
-    icon: "SettingOutlined",
-    parentId: null,
-    sort: 1,
-    status: true,
-    children: [
-      {
-        id: 11,
-        name: "菜单管理",
-        path: "/menu-management",
-        icon: "MenuOutlined",
-        parentId: 1,
-        sort: 1,
-        status: true,
-      },
-      {
-        id: 12,
-        name: "角色管理",
-        path: "/role-management",
-        icon: "TeamOutlined",
-        parentId: 1,
-        sort: 2,
-        status: true,
-      },
-      {
-        id: 13,
-        name: "用户管理",
-        path: "/user-management",
-        icon: "UserOutlined",
-        parentId: 1,
-        sort: 3,
-        status: true,
-      },
-    ],
-  },
-  {
-    id: 2,
-    name: "订单管理",
-    path: "/order",
-    icon: "ShoppingCartOutlined",
-    parentId: null,
-    sort: 2,
-    status: true,
-    children: [
-      {
-        id: 21,
-        name: "订单列表",
-        path: "/order/list",
-        icon: "FileTextOutlined",
-        parentId: 2,
-        sort: 1,
-        status: true,
-      },
-    ],
-  },
-];
+import {
+  getAllMenus,
+  createMenu,
+  updateMenu,
+  deleteMenu,
+  type MenuItem,
+  type CreateMenuData,
+  AxiosError,
+} from "../../api";
 
 const iconOptions = [
   { value: "UserOutlined", label: "用户" },
@@ -108,11 +45,35 @@ interface TreeNode {
   children?: TreeNode[];
 }
 
+interface ErrorResponse {
+  message?: string;
+}
+
 export default function MenuManagement() {
-  const [data, setData] = useState<MenuItem[]>(initialData);
+  const [data, setData] = useState<MenuItem[]>([]);
+  const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [form] = Form.useForm();
+
+  const fetchMenus = async () => {
+    setLoading(true);
+    try {
+      const res = await getAllMenus();
+      if (res.code === 200) {
+        setData(res.data || []);
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError<ErrorResponse>;
+      message.error(axiosError.response?.data?.message || "获取菜单失败");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMenus();
+  }, []);
 
   const handleAdd = () => {
     setEditingItem(null);
@@ -124,69 +85,58 @@ export default function MenuManagement() {
 
   const handleEdit = (record: MenuItem) => {
     setEditingItem(record);
-    form.setFieldsValue(record);
+    form.setFieldsValue({
+      ...record,
+      parentId: record.parent_id,
+    });
     setModalVisible(true);
   };
 
-  const handleDelete = (id: number) => {
-    const deleteRecursive = (items: MenuItem[]): MenuItem[] => {
-      return items
-        .filter((item) => item.id !== id)
-        .map((item) => ({
-          ...item,
-          children: item.children ? deleteRecursive(item.children) : undefined,
-        }));
-    };
-    setData(deleteRecursive(data));
-    message.success("删除成功");
+  const handleDelete = async (id: number) => {
+    try {
+      const res = await deleteMenu(id);
+      if (res.code === 200) {
+        message.success("删除成功");
+        fetchMenus();
+      } else {
+        message.error(res.message);
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError<ErrorResponse>;
+      message.error(axiosError.response?.data?.message || "删除失败");
+    }
   };
 
   const handleSubmit = async () => {
-    const values = await form.validateFields();
-    if (editingItem) {
-      const updateRecursive = (items: MenuItem[]): MenuItem[] => {
-        return items.map((item) => {
-          if (item.id === editingItem.id) {
-            return { ...item, ...values };
-          }
-          return {
-            ...item,
-            children: item.children
-              ? updateRecursive(item.children)
-              : undefined,
-          };
-        });
-      };
-      setData(updateRecursive(data));
-      message.success("修改成功");
-    } else {
-      const newItem: MenuItem = {
+    try {
+      const values = await form.validateFields();
+      const submitData: CreateMenuData = {
         ...values,
-        id: Date.now(),
-        children: undefined,
+        parentId: values.parentId || null,
       };
-      if (values.parentId) {
-        const addToParent = (items: MenuItem[]): MenuItem[] => {
-          return items.map((item) => {
-            if (item.id === values.parentId) {
-              return {
-                ...item,
-                children: [...(item.children || []), newItem],
-              };
-            }
-            return {
-              ...item,
-              children: item.children ? addToParent(item.children) : undefined,
-            };
-          });
-        };
-        setData(addToParent(data));
+
+      if (editingItem) {
+        const res = await updateMenu(editingItem.id, submitData);
+        if (res.code === 200) {
+          message.success("修改成功");
+          fetchMenus();
+        } else {
+          message.error(res.message);
+        }
       } else {
-        setData([...data, newItem]);
+        const res = await createMenu(submitData);
+        if (res.code === 200) {
+          message.success("添加成功");
+          fetchMenus();
+        } else {
+          message.error(res.message);
+        }
       }
-      message.success("添加成功");
+      setModalVisible(false);
+    } catch (err) {
+      const axiosError = err as AxiosError<ErrorResponse>;
+      message.error(axiosError.response?.data?.message || "操作失败");
     }
-    setModalVisible(false);
   };
 
   const columns = [
@@ -268,7 +218,11 @@ export default function MenuManagement() {
         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
           新增菜单
         </Button>
-        <Button icon={<ReloadOutlined />} style={{ marginLeft: 8 }}>
+        <Button
+          icon={<ReloadOutlined />}
+          style={{ marginLeft: 8 }}
+          onClick={fetchMenus}
+        >
           刷新
         </Button>
       </div>
@@ -278,6 +232,7 @@ export default function MenuManagement() {
         rowKey="id"
         pagination={false}
         defaultExpandAllRows
+        loading={loading}
       />
       <Modal
         title={editingItem ? "编辑菜单" : "新增菜单"}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import {
   Layout,
@@ -8,6 +8,7 @@ import {
   Dropdown,
   theme,
   type MenuProps,
+  message,
 } from "antd";
 import {
   MenuFoldOutlined,
@@ -17,6 +18,7 @@ import {
   LogoutOutlined,
   DashboardOutlined,
 } from "@ant-design/icons";
+import { getUserInfo, logout, type UserInfo, AxiosError } from "../api";
 
 const { Header, Sider, Content, Footer } = Layout;
 
@@ -40,11 +42,51 @@ const menuItems: MenuItem[] = [
   },
 ];
 
+interface ErrorResponse {
+  message?: string;
+}
+
 export default function MainLayout() {
   const [collapsed, setCollapsed] = useState(false);
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
   const { token } = theme.useToken();
+
+  const fetchUserInfo = async () => {
+    try {
+      const res = await getUserInfo();
+      if (res.code === 200) {
+        setUserInfo(res.data);
+      } else {
+        message.error(res.message || "获取用户信息失败");
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError<ErrorResponse>;
+      message.error(axiosError.response?.data?.message || "获取用户信息失败");
+    }
+  };
+
+  useEffect(() => {
+    const storedUser = localStorage.getItem("user");
+    if (storedUser) {
+      try {
+        const parsed = JSON.parse(storedUser) as UserInfo;
+        // 使用 requestAnimationFrame 避免在 effect 中同步调用 setState 导致的级联渲染问题
+        requestAnimationFrame(() => {
+          setUserInfo(parsed);
+        });
+      } catch {
+        requestAnimationFrame(() => {
+          fetchUserInfo();
+        });
+      }
+    } else {
+      requestAnimationFrame(() => {
+        fetchUserInfo();
+      });
+    }
+  }, []);
 
   const userMenuItems: MenuItem[] = [
     {
@@ -72,8 +114,16 @@ export default function MainLayout() {
     navigate(key);
   };
 
-  const handleUserMenuClick = (key: string) => {
+  const handleUserMenuClick = async (key: string) => {
     if (key === "logout") {
+      try {
+        await logout();
+      } catch {
+        console.error("登出请求失败");
+      }
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      message.success("已退出登录");
       navigate("/login");
     }
   };
@@ -141,9 +191,10 @@ export default function MainLayout() {
             >
               <Avatar
                 icon={<UserOutlined />}
+                src={userInfo?.avatar}
                 style={{ backgroundColor: token.colorPrimary }}
               />
-              <span>管理员</span>
+              <span>{userInfo?.name || userInfo?.username || "用户"}</span>
             </div>
           </Dropdown>
         </Header>

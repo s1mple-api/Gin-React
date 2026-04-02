@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from "react";
 import {
   Table,
   Button,
@@ -12,213 +12,211 @@ import {
   message,
   Tag,
   Avatar,
-} from 'antd'
-import { PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined, UserOutlined } from '@ant-design/icons'
+} from "antd";
+import { PlusOutlined, EditOutlined, DeleteOutlined, ReloadOutlined, UserOutlined } from "@ant-design/icons";
+import {
+  getUsers,
+  createUser,
+  updateUser,
+  deleteUser,
+  getRoles,
+  type User,
+  type CreateUserData,
+  type Role,
+  AxiosError,
+} from "../../api";
 
-interface User {
-  id: number
-  username: string
-  name: string
-  email: string
-  phone: string
-  avatar?: string
-  role: string
-  status: boolean
-  createTime: string
+interface RoleOption {
+  value: number;
+  label: string;
 }
 
-const initialData: User[] = [
-  {
-    id: 1,
-    username: 'admin',
-    name: '管理员',
-    email: 'admin@example.com',
-    phone: '13800138000',
-    role: 'super_admin',
-    status: true,
-    createTime: '2024-01-01 10:00:00',
-  },
-  {
-    id: 2,
-    username: 'user1',
-    name: '张三',
-    email: 'zhangsan@example.com',
-    phone: '13800138001',
-    role: 'user',
-    status: true,
-    createTime: '2024-01-15 10:00:00',
-  },
-  {
-    id: 3,
-    username: 'user2',
-    name: '李四',
-    email: 'lisi@example.com',
-    phone: '13800138002',
-    role: 'user',
-    status: false,
-    createTime: '2024-02-01 10:00:00',
-  },
-  {
-    id: 4,
-    username: 'guest',
-    name: '王五',
-    email: 'wangwu@example.com',
-    phone: '13800138003',
-    role: 'guest',
-    status: true,
-    createTime: '2024-02-15 10:00:00',
-  },
-]
-
-const roleOptions = [
-  { value: 'super_admin', label: '超级管理员' },
-  { value: 'admin', label: '管理员' },
-  { value: 'user', label: '普通用户' },
-  { value: 'guest', label: '访客' },
-]
+interface ErrorResponse {
+  message?: string;
+}
 
 export default function UserManagement() {
-  const [data, setData] = useState<User[]>(initialData)
-  const [modalVisible, setModalVisible] = useState(false)
-  const [editingItem, setEditingItem] = useState<User | null>(null)
-  const [form] = Form.useForm()
-  const [searchText, setSearchText] = useState('')
+  const [data, setData] = useState<User[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [editingItem, setEditingItem] = useState<User | null>(null);
+  const [form] = Form.useForm();
+  const [searchText, setSearchText] = useState("");
+  const [roleOptions, setRoleOptions] = useState<RoleOption[]>([]);
+
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      const res = await getUsers();
+      if (res.code === 200) {
+        setData(res.data || []);
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError<ErrorResponse>;
+      message.error(axiosError.response?.data?.message || "获取用户失败");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchRoles = async () => {
+    try {
+      const res = await getRoles();
+      if (res.code === 200) {
+        setRoleOptions(
+          (res.data || []).map((role: Role) => ({
+            value: role.id,
+            label: role.name,
+          }))
+        );
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError<ErrorResponse>;
+      message.error(axiosError.response?.data?.message || "获取角色失败");
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+    fetchRoles();
+  }, []);
 
   const filteredData = data.filter(
     (item) =>
       item.username.includes(searchText) ||
       item.name.includes(searchText) ||
       item.email.includes(searchText)
-  )
+  );
 
   const handleAdd = () => {
-    setEditingItem(null)
-    form.resetFields()
-    form.setFieldValue('status', true)
-    form.setFieldValue('role', 'user')
-    setModalVisible(true)
-  }
+    setEditingItem(null);
+    form.resetFields();
+    form.setFieldValue("status", true);
+    form.setFieldValue("role_id", roleOptions[0]?.value);
+    setModalVisible(true);
+  };
 
   const handleEdit = (record: User) => {
-    setEditingItem(record)
-    form.setFieldsValue(record)
-    setModalVisible(true)
-  }
+    setEditingItem(record);
+    form.setFieldsValue(record);
+    setModalVisible(true);
+  };
 
-  const handleDelete = (id: number) => {
-    setData(data.filter((item) => item.id !== id))
-    message.success('删除成功')
-  }
+  const handleDelete = async (id: number) => {
+    try {
+      const res = await deleteUser(id);
+      if (res.code === 200) {
+        message.success("删除成功");
+        fetchUsers();
+      } else {
+        message.error(res.message);
+      }
+    } catch (err) {
+      const axiosError = err as AxiosError<ErrorResponse>;
+      message.error(axiosError.response?.data?.message || "删除失败");
+    }
+  };
 
   const handleSubmit = async () => {
-    const values = await form.validateFields()
-    if (editingItem) {
-      setData(
-        data.map((item) =>
-          item.id === editingItem.id ? { ...item, ...values } : item
-        )
-      )
-      message.success('修改成功')
-    } else {
-      setData([
-        ...data,
-        {
-          ...values,
-          id: Date.now(),
-          createTime: new Date().toLocaleString('zh-CN'),
-        },
-      ])
-      message.success('添加成功')
+    try {
+      const values = await form.validateFields();
+
+      if (editingItem) {
+        const res = await updateUser(editingItem.id, values);
+        if (res.code === 200) {
+          message.success("修改成功");
+          fetchUsers();
+        } else {
+          message.error(res.message);
+        }
+      } else {
+        const res = await createUser(values as CreateUserData);
+        if (res.code === 200) {
+          message.success("添加成功");
+          fetchUsers();
+        } else {
+          message.error(res.message);
+        }
+      }
+      setModalVisible(false);
+    } catch (err) {
+      const axiosError = err as AxiosError<ErrorResponse>;
+      message.error(axiosError.response?.data?.message || "操作失败");
     }
-    setModalVisible(false)
-  }
+  };
 
   const columns = [
     {
-      title: '头像',
-      dataIndex: 'avatar',
-      key: 'avatar',
+      title: "头像",
+      dataIndex: "avatar",
+      key: "avatar",
       width: 70,
       render: (_: string | undefined, record: User) => (
-        <Avatar
-          icon={<UserOutlined />}
-          src={record.avatar}
-          style={{ backgroundColor: '#1890ff' }}
-        />
+        <Avatar icon={<UserOutlined />} src={record.avatar} style={{ backgroundColor: "#1890ff" }} />
       ),
     },
     {
-      title: '用户名',
-      dataIndex: 'username',
-      key: 'username',
+      title: "用户名",
+      dataIndex: "username",
+      key: "username",
       width: 120,
     },
     {
-      title: '姓名',
-      dataIndex: 'name',
-      key: 'name',
+      title: "姓名",
+      dataIndex: "name",
+      key: "name",
       width: 100,
     },
     {
-      title: '邮箱',
-      dataIndex: 'email',
-      key: 'email',
+      title: "邮箱",
+      dataIndex: "email",
+      key: "email",
       width: 180,
     },
     {
-      title: '手机号',
-      dataIndex: 'phone',
-      key: 'phone',
+      title: "手机号",
+      dataIndex: "phone",
+      key: "phone",
       width: 130,
     },
     {
-      title: '角色',
-      dataIndex: 'role',
-      key: 'role',
+      title: "角色",
+      dataIndex: "role",
+      key: "role",
       width: 100,
-      render: (role: string) => {
+      render: (role: { name: string } | undefined) => {
+        if (!role) return "-";
         const colorMap: Record<string, string> = {
-          super_admin: 'red',
-          admin: 'orange',
-          user: 'blue',
-          guest: 'default',
-        }
-        const labelMap: Record<string, string> = {
-          super_admin: '超级管理员',
-          admin: '管理员',
-          user: '普通用户',
-          guest: '访客',
-        }
-        return <Tag color={colorMap[role]}>{labelMap[role]}</Tag>
+          超级管理员: "red",
+          管理员: "orange",
+          普通用户: "blue",
+          访客: "default",
+        };
+        return <Tag color={colorMap[role.name]}>{role.name}</Tag>;
       },
     },
     {
-      title: '状态',
-      dataIndex: 'status',
-      key: 'status',
+      title: "状态",
+      dataIndex: "status",
+      key: "status",
       width: 80,
       render: (status: boolean) => (
-        <Tag color={status ? 'green' : 'red'}>{status ? '启用' : '禁用'}</Tag>
+        <Tag color={status ? "green" : "red"}>{status ? "启用" : "禁用"}</Tag>
       ),
     },
     {
-      title: '创建时间',
-      dataIndex: 'createTime',
-      key: 'createTime',
+      title: "创建时间",
+      dataIndex: "created_at",
+      key: "created_at",
       width: 180,
     },
     {
-      title: '操作',
-      key: 'action',
+      title: "操作",
+      key: "action",
       width: 150,
       render: (_: unknown, record: User) => (
         <Space>
-          <Button
-            type="link"
-            size="small"
-            icon={<EditOutlined />}
-            onClick={() => handleEdit(record)}
-          >
+          <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleEdit(record)}>
             编辑
           </Button>
           <Popconfirm
@@ -227,35 +225,23 @@ export default function UserManagement() {
             okText="确认"
             cancelText="取消"
           >
-            <Button
-              type="link"
-              size="small"
-              danger
-              icon={<DeleteOutlined />}
-            >
+            <Button type="link" size="small" danger icon={<DeleteOutlined />}>
               删除
             </Button>
           </Popconfirm>
         </Space>
       ),
     },
-  ]
+  ];
 
   return (
     <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+      <div style={{ marginBottom: 16, display: "flex", justifyContent: "space-between" }}>
         <div>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={handleAdd}
-          >
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
             新增用户
           </Button>
-          <Button
-            icon={<ReloadOutlined />}
-            style={{ marginLeft: 8 }}
-          >
+          <Button icon={<ReloadOutlined />} style={{ marginLeft: 8 }} onClick={fetchUsers}>
             刷新
           </Button>
         </div>
@@ -271,9 +257,10 @@ export default function UserManagement() {
         dataSource={filteredData}
         rowKey="id"
         pagination={{ pageSize: 10 }}
+        loading={loading}
       />
       <Modal
-        title={editingItem ? '编辑用户' : '新增用户'}
+        title={editingItem ? "编辑用户" : "新增用户"}
         open={modalVisible}
         onOk={handleSubmit}
         onCancel={() => setModalVisible(false)}
@@ -284,25 +271,30 @@ export default function UserManagement() {
             name="username"
             label="用户名"
             rules={[
-              { required: true, message: '请输入用户名' },
-              { min: 3, message: '用户名至少3个字符' },
+              { required: true, message: "请输入用户名" },
+              { min: 3, message: "用户名至少3个字符" },
             ]}
           >
             <Input placeholder="请输入用户名" disabled={!!editingItem} />
           </Form.Item>
-          <Form.Item
-            name="name"
-            label="姓名"
-            rules={[{ required: true, message: '请输入姓名' }]}
-          >
+          {!editingItem && (
+            <Form.Item
+              name="password"
+              label="密码"
+              rules={[{ required: true, message: "请输入密码" }]}
+            >
+              <Input.Password placeholder="请输入密码" />
+            </Form.Item>
+          )}
+          <Form.Item name="name" label="姓名" rules={[{ required: true, message: "请输入姓名" }]}>
             <Input placeholder="请输入姓名" />
           </Form.Item>
           <Form.Item
             name="email"
             label="邮箱"
             rules={[
-              { required: true, message: '请输入邮箱' },
-              { type: 'email', message: '请输入有效的邮箱地址' },
+              { required: true, message: "请输入邮箱" },
+              { type: "email", message: "请输入有效的邮箱地址" },
             ]}
           >
             <Input placeholder="请输入邮箱" />
@@ -311,16 +303,16 @@ export default function UserManagement() {
             name="phone"
             label="手机号"
             rules={[
-              { required: true, message: '请输入手机号' },
-              { pattern: /^1[3-9]\d{9}$/, message: '请输入有效的手机号' },
+              { required: true, message: "请输入手机号" },
+              { pattern: /^1[3-9]\d{9}$/, message: "请输入有效的手机号" },
             ]}
           >
             <Input placeholder="请输入手机号" />
           </Form.Item>
           <Form.Item
-            name="role"
+            name="role_id"
             label="角色"
-            rules={[{ required: true, message: '请选择角色' }]}
+            rules={[{ required: true, message: "请选择角色" }]}
           >
             <Select placeholder="请选择角色" options={roleOptions} />
           </Form.Item>
@@ -330,5 +322,5 @@ export default function UserManagement() {
         </Form>
       </Modal>
     </div>
-  )
+  );
 }
