@@ -124,13 +124,14 @@ export default function MainLayout() {
     if (key === "logout") {
       try {
         await logout();
-      } catch {
-        console.error("登出请求失败");
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        message.success("已退出登录");
+        navigate("/login");
+      } catch (error) {
+        console.error("登出请求失败:", error);
+        message.error("登出失败，请重试");
       }
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      message.success("已退出登录");
-      navigate("/login");
     }
   };
 

@@ -22,16 +22,16 @@ var manager = &TokenManager{
 }
 
 func ValidateToken(tokenString string, secret string) (bool, uint, string) {
-	manager.mu.RLock()
-	storedToken, exists := manager.userTokens[0]
-	manager.mu.RUnlock()
-
-	if exists && storedToken != tokenString {
+	claims, err := utils.ParseToken(tokenString, secret)
+	if err != nil {
 		return false, 0, ""
 	}
 
-	claims, err := utils.ParseToken(tokenString, secret)
-	if err != nil {
+	manager.mu.RLock()
+	storedToken, exists := manager.userTokens[claims.UserID]
+	manager.mu.RUnlock()
+
+	if exists && storedToken != tokenString {
 		return false, 0, ""
 	}
 

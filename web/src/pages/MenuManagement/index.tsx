@@ -26,7 +26,6 @@ import {
   deleteMenu,
   type MenuItem,
   type CreateMenuData,
-  AxiosError,
 } from "../../api";
 
 const iconOptions = [
@@ -45,10 +44,6 @@ interface TreeNode {
   children?: TreeNode[];
 }
 
-interface ErrorResponse {
-  message?: string;
-}
-
 export default function MenuManagement() {
   const [data, setData] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -63,9 +58,6 @@ export default function MenuManagement() {
       if (res.code === 200) {
         setData(res.data || []);
       }
-    } catch (err) {
-      const axiosError = err as AxiosError<ErrorResponse>;
-      message.error(axiosError.response?.data?.message || "获取菜单失败");
     } finally {
       setLoading(false);
     }
@@ -93,50 +85,27 @@ export default function MenuManagement() {
   };
 
   const handleDelete = async (id: number) => {
-    try {
-      const res = await deleteMenu(id);
-      if (res.code === 200) {
-        message.success("删除成功");
-        fetchMenus();
-      } else {
-        message.error(res.message);
-      }
-    } catch (err) {
-      const axiosError = err as AxiosError<ErrorResponse>;
-      message.error(axiosError.response?.data?.message || "删除失败");
-    }
+    await deleteMenu(id);
+    message.success("删除成功");
+    fetchMenus();
   };
 
   const handleSubmit = async () => {
-    try {
-      const values = await form.validateFields();
-      const submitData: CreateMenuData = {
-        ...values,
-        parentId: values.parentId || null,
-      };
+    const values = await form.validateFields();
+    const submitData: CreateMenuData = {
+      ...values,
+      parentId: values.parentId || null,
+    };
 
-      if (editingItem) {
-        const res = await updateMenu(editingItem.id, submitData);
-        if (res.code === 200) {
-          message.success("修改成功");
-          fetchMenus();
-        } else {
-          message.error(res.message);
-        }
-      } else {
-        const res = await createMenu(submitData);
-        if (res.code === 200) {
-          message.success("添加成功");
-          fetchMenus();
-        } else {
-          message.error(res.message);
-        }
-      }
-      setModalVisible(false);
-    } catch (err) {
-      const axiosError = err as AxiosError<ErrorResponse>;
-      message.error(axiosError.response?.data?.message || "操作失败");
+    if (editingItem) {
+      await updateMenu(editingItem.id, submitData);
+      message.success("修改成功");
+    } else {
+      await createMenu(submitData);
+      message.success("添加成功");
     }
+    setModalVisible(false);
+    fetchMenus();
   };
 
   const columns = [
@@ -202,15 +171,13 @@ export default function MenuManagement() {
     },
   ];
 
-  const buildTreeData = (items: MenuItem[]): TreeNode[] => {
-    return items.map((item) => ({
-      key: item.id,
-      title: item.name,
-      children: item.children ? buildTreeData(item.children) : undefined,
+  const buildTreeData = (menus: MenuItem[]): TreeNode[] => {
+    return menus.map((menu) => ({
+      key: menu.id,
+      title: menu.name,
+      children: menu.children ? buildTreeData(menu.children) : undefined,
     }));
   };
-
-  const treeData = buildTreeData(data);
 
   return (
     <div>
@@ -218,22 +185,11 @@ export default function MenuManagement() {
         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
           新增菜单
         </Button>
-        <Button
-          icon={<ReloadOutlined />}
-          style={{ marginLeft: 8 }}
-          onClick={fetchMenus}
-        >
+        <Button icon={<ReloadOutlined />} style={{ marginLeft: 8 }} onClick={fetchMenus}>
           刷新
         </Button>
       </div>
-      <Table
-        columns={columns}
-        dataSource={data}
-        rowKey="id"
-        pagination={false}
-        defaultExpandAllRows
-        loading={loading}
-      />
+      <Table columns={columns} dataSource={data} rowKey="id" loading={loading} />
       <Modal
         title={editingItem ? "编辑菜单" : "新增菜单"}
         open={modalVisible}
@@ -247,32 +203,30 @@ export default function MenuManagement() {
             label="菜单名称"
             rules={[{ required: true, message: "请输入菜单名称" }]}
           >
-            <Input placeholder="请输入菜单名称" />
+            <Input />
           </Form.Item>
           <Form.Item
             name="path"
-            label="路由路径"
-            rules={[{ required: true, message: "请输入路由路径" }]}
+            label="路径"
+            rules={[{ required: true, message: "请输入路径" }]}
           >
-            <Input placeholder="请输入路由路径" />
+            <Input />
           </Form.Item>
           <Form.Item name="icon" label="图标">
-            <Select placeholder="请选择图标" options={iconOptions} />
+            <Select options={iconOptions} />
           </Form.Item>
-          <Form.Item name="parentId" label="父级菜单">
+          <Form.Item name="parentId" label="上级菜单">
             <TreeSelect
-              style={{ width: "100%" }}
-              placeholder="请选择父级菜单"
-              treeData={treeData}
+              treeData={[{ key: 0, title: "无", children: buildTreeData(data) }]}
+              placeholder="请选择上级菜单"
               allowClear
-              treeDefaultExpandAll
             />
           </Form.Item>
           <Form.Item name="sort" label="排序">
-            <Input type="number" placeholder="请输入排序" />
+            <Input type="number" />
           </Form.Item>
           <Form.Item name="status" label="状态" valuePropName="checked">
-            <Switch checkedChildren="启用" unCheckedChildren="禁用" />
+            <Switch />
           </Form.Item>
         </Form>
       </Modal>

@@ -29,16 +29,11 @@ import {
   type User,
   type CreateUserData,
   type Role,
-  AxiosError,
 } from "../../api";
 
 interface RoleOption {
   value: number;
   label: string;
-}
-
-interface ErrorResponse {
-  message?: string;
 }
 
 export default function UserManagement() {
@@ -57,9 +52,6 @@ export default function UserManagement() {
       if (res.code === 200) {
         setData(res.data || []);
       }
-    } catch (err) {
-      const axiosError = err as AxiosError<ErrorResponse>;
-      message.error(axiosError.response?.data?.message || "获取用户失败");
     } finally {
       setLoading(false);
     }
@@ -76,9 +68,8 @@ export default function UserManagement() {
           })),
         );
       }
-    } catch (err) {
-      const axiosError = err as AxiosError<ErrorResponse>;
-      message.error(axiosError.response?.data?.message || "获取角色失败");
+    } catch {
+      // 错误已由拦截器处理
     }
   };
 
@@ -109,46 +100,23 @@ export default function UserManagement() {
   };
 
   const handleDelete = async (id: number) => {
-    try {
-      const res = await deleteUser(id);
-      if (res.code === 200) {
-        message.success("删除成功");
-        fetchUsers();
-      } else {
-        message.error(res.message);
-      }
-    } catch (err) {
-      const axiosError = err as AxiosError<ErrorResponse>;
-      message.error(axiosError.response?.data?.message || "删除失败");
-    }
+    await deleteUser(id);
+    message.success("删除成功");
+    fetchUsers();
   };
 
   const handleSubmit = async () => {
-    try {
-      const values = await form.validateFields();
+    const values = await form.validateFields();
 
-      if (editingItem) {
-        const res = await updateUser(editingItem.id, values);
-        if (res.code === 200) {
-          message.success("修改成功");
-          fetchUsers();
-        } else {
-          message.error(res.message);
-        }
-      } else {
-        const res = await createUser(values as CreateUserData);
-        if (res.code === 200) {
-          message.success("添加成功");
-          fetchUsers();
-        } else {
-          message.error(res.message);
-        }
-      }
-      setModalVisible(false);
-    } catch (err) {
-      const axiosError = err as AxiosError<ErrorResponse>;
-      message.error(axiosError.response?.data?.message || "操作失败");
+    if (editingItem) {
+      await updateUser(editingItem.id, values);
+      message.success("修改成功");
+    } else {
+      await createUser(values as CreateUserData);
+      message.success("添加成功");
     }
+    setModalVisible(false);
+    fetchUsers();
   };
 
   const columns = [
@@ -295,58 +263,46 @@ export default function UserManagement() {
           <Form.Item
             name="username"
             label="用户名"
-            rules={[
-              { required: true, message: "请输入用户名" },
-              { min: 3, message: "用户名至少3个字符" },
-            ]}
+            rules={[{ required: true, message: "请输入用户名" }]}
           >
-            <Input placeholder="请输入用户名" disabled={!!editingItem} />
+            <Input disabled={!!editingItem} />
           </Form.Item>
-          {!editingItem && (
-            <Form.Item
-              name="password"
-              label="密码"
-              rules={[{ required: true, message: "请输入密码" }]}
-            >
-              <Input.Password placeholder="请输入密码" />
-            </Form.Item>
-          )}
+          <Form.Item name="name" label="姓名" rules={[{ required: true, message: "请输入姓名" }]}>
+            <Input />
+          </Form.Item>
           <Form.Item
-            name="name"
-            label="姓名"
-            rules={[{ required: true, message: "请输入姓名" }]}
+            name="password"
+            label="密码"
+            rules={[{ required: !editingItem, message: "请输入密码" }]}
           >
-            <Input placeholder="请输入姓名" />
+            <Input.Password placeholder={editingItem ? "不修改请留空" : ""} />
           </Form.Item>
           <Form.Item
             name="email"
             label="邮箱"
             rules={[
               { required: true, message: "请输入邮箱" },
-              { type: "email", message: "请输入有效的邮箱地址" },
+              { type: "email", message: "请输入有效邮箱" },
             ]}
           >
-            <Input placeholder="请输入邮箱" />
+            <Input />
           </Form.Item>
           <Form.Item
             name="phone"
             label="手机号"
-            rules={[
-              { required: true, message: "请输入手机号" },
-              { pattern: /^1[3-9]\d{9}$/, message: "请输入有效的手机号" },
-            ]}
+            rules={[{ required: true, message: "请输入手机号" }]}
           >
-            <Input placeholder="请输入手机号" />
+            <Input />
           </Form.Item>
           <Form.Item
             name="role_id"
             label="角色"
             rules={[{ required: true, message: "请选择角色" }]}
           >
-            <Select placeholder="请选择角色" options={roleOptions} />
+            <Select options={roleOptions} />
           </Form.Item>
           <Form.Item name="status" label="状态" valuePropName="checked">
-            <Switch checkedChildren="启用" unCheckedChildren="禁用" />
+            <Switch />
           </Form.Item>
         </Form>
       </Modal>

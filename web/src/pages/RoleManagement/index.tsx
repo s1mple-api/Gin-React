@@ -22,16 +22,11 @@ import {
   type Role,
   type CreateRoleData,
   type MenuItem,
-  AxiosError,
 } from "../../api";
 
 interface Menu {
   key: string;
   title: string;
-}
-
-interface ErrorResponse {
-  message?: string;
 }
 
 export default function RoleManagement() {
@@ -50,9 +45,6 @@ export default function RoleManagement() {
       if (res.code === 200) {
         setData(res.data || []);
       }
-    } catch (err) {
-      const axiosError = err as AxiosError<ErrorResponse>;
-      message.error(axiosError.response?.data?.message || "获取角色失败");
     } finally {
       setLoading(false);
     }
@@ -74,9 +66,8 @@ export default function RoleManagement() {
         flattenMenus(res.data || []);
         setAllMenus(menuList);
       }
-    } catch (err) {
-      const axiosError = err as AxiosError<ErrorResponse>;
-      message.error(axiosError.response?.data?.message || "获取菜单失败");
+    } catch {
+      // 错误已由拦截器处理
     }
   };
 
@@ -101,50 +92,27 @@ export default function RoleManagement() {
   };
 
   const handleDelete = async (id: number) => {
-    try {
-      const res = await deleteRole(id);
-      if (res.code === 200) {
-        message.success("删除成功");
-        fetchRoles();
-      } else {
-        message.error(res.message);
-      }
-    } catch (err) {
-      const axiosError = err as AxiosError<ErrorResponse>;
-      message.error(axiosError.response?.data?.message || "删除失败");
-    }
+    await deleteRole(id);
+    message.success("删除成功");
+    fetchRoles();
   };
 
   const handleSubmit = async () => {
-    try {
-      const values = await form.validateFields();
-      const submitData: CreateRoleData = {
-        ...values,
-        menu_ids: selectedMenus.map((id) => Number(id)),
-      };
+    const values = await form.validateFields();
+    const submitData: CreateRoleData = {
+      ...values,
+      menu_ids: selectedMenus.map((id) => Number(id)),
+    };
 
-      if (editingItem) {
-        const res = await updateRole(editingItem.id, submitData);
-        if (res.code === 200) {
-          message.success("修改成功");
-          fetchRoles();
-        } else {
-          message.error(res.message);
-        }
-      } else {
-        const res = await createRole(submitData);
-        if (res.code === 200) {
-          message.success("添加成功");
-          fetchRoles();
-        } else {
-          message.error(res.message);
-        }
-      }
-      setModalVisible(false);
-    } catch (err) {
-      const axiosError = err as AxiosError<ErrorResponse>;
-      message.error(axiosError.response?.data?.message || "操作失败");
+    if (editingItem) {
+      await updateRole(editingItem.id, submitData);
+      message.success("修改成功");
+    } else {
+      await createRole(submitData);
+      message.success("添加成功");
     }
+    setModalVisible(false);
+    fetchRoles();
   };
 
   const handleMenuChange = (targetKeys: React.Key[]) => {

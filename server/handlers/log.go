@@ -98,7 +98,9 @@ func CreateLog(userID uint, username, action, method, path, ip string, status in
 		Status:   status,
 		Message:  message,
 	}
-	config.DB.Create(&log)
+	if err := config.DB.Create(&log).Error; err != nil {
+		return
+	}
 }
 
 func LogLogin(userID uint, username, ip string, success bool) {

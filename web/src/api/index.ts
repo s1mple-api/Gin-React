@@ -1,3 +1,4 @@
+import { message } from "antd";
 import axios, { AxiosError } from "axios";
 
 export interface ApiResponse<T = unknown> {
@@ -6,6 +7,38 @@ export interface ApiResponse<T = unknown> {
   data: T;
 }
 
+const CodeMessages: Record<number, string> = {
+  200: "操作成功",
+  400: "请求参数错误",
+  401: "用户名或密码错误",
+  403: "禁止访问",
+  404: "资源不存在",
+  500: "服务器错误",
+};
+
+let loadingCount = 0;
+let loadingTimer: ReturnType<typeof setTimeout> | null = null;
+
+const showLoading = () => {
+  loadingCount++;
+  if (loadingTimer) {
+    clearTimeout(loadingTimer);
+    loadingTimer = null;
+  }
+  window.dispatchEvent(
+    new CustomEvent("loading-change", { detail: { loading: true } }),
+  );
+};
+
+const hideLoading = () => {
+  loadingCount = Math.max(0, loadingCount - 1);
+  if (loadingCount === 0) {
+    window.dispatchEvent(
+      new CustomEvent("loading-change", { detail: { loading: false } }),
+    );
+  }
+};
+
 const api = axios.create({
   baseURL: "http://localhost:8080/api",
   timeout: 10000,
@@ -13,6 +46,7 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
+    showLoading();
     const token = localStorage.getItem("token");
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -26,13 +60,32 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => {
+    hideLoading();
+    const res = response.data as ApiResponse;
+    if (res.code !== 200) {
+      const errorMsg = res.message || CodeMessages[res.code] || "操作失败";
+      message.error(errorMsg);
+      return Promise.reject(new Error(errorMsg));
+    }
     return response.data;
   },
   (error: AxiosError) => {
+    hideLoading();
     if (error.response?.status === 401) {
       localStorage.removeItem("token");
       localStorage.removeItem("user");
+      message.error("登录已过期，请重新登录");
       window.location.href = "/login";
+    } else if (error.response?.status === 403) {
+      message.error("禁止访问");
+    } else if (error.response?.status === 404) {
+      message.error("请求的资源不存在");
+    } else if (error.response?.status === 500) {
+      message.error("服务器内部错误");
+    } else if (error.code === "ECONNABORTED") {
+      message.error("请求超时，请稍后重试");
+    } else {
+      message.error(error.message || "网络错误");
     }
     return Promise.reject(error);
   },

@@ -8,7 +8,6 @@ import {
   Space,
   Tag,
   Button,
-  message,
   Statistic,
   Row,
   Col,
@@ -21,14 +20,9 @@ import {
   EditOutlined,
 } from "@ant-design/icons";
 import { getLogs, getLogStats, type Log, type LogStats } from "../../api";
-import { AxiosError } from "axios";
 import dayjs from "dayjs";
 
 const { RangePicker } = DatePicker;
-
-interface ErrorResponse {
-  message?: string;
-}
 
 const actionOptions = [
   { value: "", label: "全部" },
@@ -69,7 +63,7 @@ export default function LogManagement() {
         setStats(res.data);
       }
     } catch {
-      console.error("获取统计数据失败");
+      // 错误已由拦截器处理
     }
   };
 
@@ -91,9 +85,6 @@ export default function LogManagement() {
           total: res.data.total,
         }));
       }
-    } catch (err) {
-      const axiosError = err as AxiosError<ErrorResponse>;
-      message.error(axiosError.response?.data?.message || "获取日志失败");
     } finally {
       setLoading(false);
     }
@@ -192,11 +183,7 @@ export default function LogManagement() {
       key: "method",
       width: 100,
       render: (method: string) => (
-        <Tag
-          color={
-            method === "POST" ? "green" : method === "PUT" ? "blue" : "red"
-          }
-        >
+        <Tag color={method === "POST" ? "green" : method === "PUT" ? "blue" : "red"}>
           {method}
         </Tag>
       ),
