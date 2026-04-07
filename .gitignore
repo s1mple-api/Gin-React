@@ -1,0 +1,8 @@
+# Trae
+.trae/
+
+# Agents
+AGENTS.md
+
+# Server binary
+server/server
